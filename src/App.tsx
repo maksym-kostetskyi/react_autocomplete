@@ -1,42 +1,28 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import './App.scss';
 import { peopleFromServer } from './data/people';
 import debounce from 'lodash.debounce';
 import { Person } from './types/Person';
 
 export const App: React.FC = () => {
-  const peopleCopy = [...peopleFromServer];
+  const queryApplyTimeout = 300;
+  const peopleCopy = useMemo(() => {
+    return [...peopleFromServer];
+  }, []);
   const [selectedHuman, setSelectedHuman] = useState<Person | null>(null);
   const [query, setQuery] = useState('');
+  const [appliedQuery, setAppliedQuery] = useState('');
   const [inputIsActive, setInputIsActive] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const inputField = useRef<HTMLInputElement>(null);
+  const handleFocus = () => setInputIsActive(true);
+  const handleBlur = () => setInputIsActive(false);
 
-  useEffect(() => {
-    const handleFocus = () => setInputIsActive(true);
-    const handleBlur = () => setInputIsActive(false);
-    const inputFieldCurrent = inputField.current;
-
-    if (inputFieldCurrent) {
-      inputFieldCurrent.addEventListener('focus', handleFocus);
-      inputFieldCurrent.addEventListener('blur', handleBlur);
-    }
-
-    return () => {
-      if (inputFieldCurrent) {
-        inputFieldCurrent.removeEventListener('focus', handleFocus);
-        inputFieldCurrent.removeEventListener('blur', handleBlur);
-      }
-    };
-  }, []);
-
-  const applyQuery = useCallback(debounce(setQuery, 2000), []);
+  const applyQuery = useMemo(
+    () =>
+      debounce((value: string) => setAppliedQuery(value), queryApplyTimeout),
+    [queryApplyTimeout],
+  );
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!peopleCopy.some(human => human.name === e.target.value)) {
@@ -47,15 +33,20 @@ export const App: React.FC = () => {
       );
     }
 
-    setQuery(e.target.value);
-    applyQuery(e.target.value);
+    if (e.target.value.trim() !== '') {
+      setQuery(e.target.value);
+      applyQuery(e.target.value);
+    } else {
+      setQuery('');
+      applyQuery('');
+    }
   };
 
   const filteredPeople = useMemo(() => {
     return peopleCopy.filter(human =>
-      human.name.toLowerCase().includes(query.toLowerCase()),
+      human.name.toLowerCase().includes(appliedQuery.toLowerCase()),
     );
-  }, [query, peopleCopy]);
+  }, [appliedQuery, peopleCopy]);
 
   const handleSelect = (nameProp: string) => {
     setQuery(nameProp);
@@ -82,6 +73,8 @@ export const App: React.FC = () => {
               className="input"
               data-cy="search-input"
               ref={inputField}
+              onFocus={() => handleFocus()}
+              onBlur={() => handleBlur()}
             />
           </div>
 
